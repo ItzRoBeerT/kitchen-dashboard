@@ -1,0 +1,92 @@
+---
+import type { Order as MockOrder } from '../data/ordersMock';
+import type { Order as SupabaseOrder } from '../services/supabaseService';
+import type { NormalizedOrder } from '../utils/orderAdapter';
+import { normalizeOrder } from '../utils/orderAdapter';
+
+interface Props {
+  orders: (MockOrder | SupabaseOrder | NormalizedOrder)[];
+}
+
+const { orders: inputOrders } = Astro.props;
+
+// Normalizar todas las órdenes que no estén ya normalizadas
+const normalizedOrders = inputOrders.map(order => 
+  'displayId' in order ? order as NormalizedOrder : normalizeOrder(order)
+);
+
+// Calcular las estadísticas
+const totalOrders = normalizedOrders.length;
+const pendingOrders = normalizedOrders.filter(order => order.status === 'pending').length;
+const preparingOrders = normalizedOrders.filter(order => order.status === 'preparing').length;
+const readyOrders = normalizedOrders.filter(order => order.status === 'ready').length;
+const deliveredOrders = normalizedOrders.filter(order => order.status === 'delivered').length;
+
+// Calcular tiempo promedio de preparación (sería más preciso con timestamps de cambio de estado)
+const averagePreparationTime = "~15 min"; // Placeholder
+
+// Encontrar el plato más popular
+const allItems = normalizedOrders.flatMap(order => order.items);
+const itemCounts: Record<string, number> = {};
+
+allItems.forEach(item => {
+  if (!itemCounts[item.name]) {
+    itemCounts[item.name] = 0;
+  }
+  itemCounts[item.name] += item.quantity;
+});
+
+let mostPopularDish = { name: '', count: 0 };
+for (const [name, count] of Object.entries(itemCounts)) {
+  if (count > mostPopularDish.count) {
+    mostPopularDish = { name, count };
+  }
+}
+---
+
+<div class="bg-white rounded-lg shadow-md p-4 mb-6">
+  <h2 class="text-lg font-bold mb-4 text-gray-800">Estadísticas de Cocina</h2>
+  
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <!-- Total de comandas -->
+    <div class="bg-gray-50 p-3 rounded-lg text-center">
+      <p class="text-sm text-gray-500">Total Comandas</p>
+      <p class="text-2xl font-bold text-gray-800">{totalOrders}</p>
+    </div>
+    
+    <!-- Comandas pendientes -->
+    <div class="bg-yellow-50 p-3 rounded-lg text-center">
+      <p class="text-sm text-yellow-700">Pendientes</p>
+      <p class="text-2xl font-bold text-yellow-600">{pendingOrders}</p>
+    </div>
+    
+    <!-- En preparación -->
+    <div class="bg-blue-50 p-3 rounded-lg text-center">
+      <p class="text-sm text-blue-700">En Preparación</p>
+      <p class="text-2xl font-bold text-blue-600">{preparingOrders}</p>
+    </div>
+    
+    <!-- Listas para entregar -->
+    <div class="bg-green-50 p-3 rounded-lg text-center">
+      <p class="text-sm text-green-700">Listas</p>
+      <p class="text-2xl font-bold text-green-600">{readyOrders}</p>
+    </div>
+  </div>
+  
+  <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <!-- Tiempo promedio de preparación -->
+    <div class="bg-indigo-50 p-3 rounded-lg">
+      <p class="text-sm text-indigo-700">Tiempo promedio de preparación</p>
+      <p class="text-xl font-bold text-indigo-600">{averagePreparationTime}</p>
+    </div>
+    
+    <!-- Plato más pedido -->
+    <div class="bg-purple-50 p-3 rounded-lg">
+      <p class="text-sm text-purple-700">Plato más pedido</p>
+      <p class="text-xl font-bold text-purple-600">
+        {mostPopularDish.name} 
+        <span class="text-sm ml-1 font-normal">({mostPopularDish.count})</span>
+      </p>
+    </div>
+  </div>
+</div>

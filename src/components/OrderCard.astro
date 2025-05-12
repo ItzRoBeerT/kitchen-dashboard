@@ -1,0 +1,149 @@
+---
+import { normalizeOrder, type NormalizedOrder } from '../utils/orderAdapter';
+import type { Order as MockOrder } from '../data/ordersMock';
+import type { Order as SupabaseOrder } from '../services/supabaseService';
+
+interface Props {
+  order: MockOrder | SupabaseOrder | NormalizedOrder;
+  onStatusChange: (id: string, status: 'pending' | 'preparing' | 'ready' | 'delivered') => void;
+}
+
+const { order: inputOrder, onStatusChange } = Astro.props;
+
+// Verificar si ya es un NormalizedOrder o necesita conversión
+const order = 'displayId' in inputOrder ? inputOrder as NormalizedOrder : normalizeOrder(inputOrder);
+
+// Función para obtener el color según el estado
+function getStatusColor(status: NormalizedOrder['status']): string {
+  switch (status) {
+    case 'pending':
+      return 'bg-yellow-500';
+    case 'preparing':
+      return 'bg-blue-500';
+    case 'ready':
+      return 'bg-green-500';
+    case 'delivered':
+      return 'bg-gray-500';
+    default:
+      return 'bg-gray-300';
+  }
+}
+
+// Función para obtener el texto según el estado
+function getStatusText(status: NormalizedOrder['status']): string {
+  switch (status) {
+    case 'pending':
+      return 'Pendiente';
+    case 'preparing':
+      return 'Preparando';
+    case 'ready':
+      return 'Listo';
+    case 'delivered':
+      return 'Entregado';
+    default:
+      return 'Desconocido';
+  }
+}
+
+// Formatear la hora
+const formattedTime = new Intl.DateTimeFormat('es-ES', {
+  hour: '2-digit',
+  minute: '2-digit'
+}).format(order.timestamp);
+
+// Opciones del selector de estado
+const statusOptions: Array<NormalizedOrder['status']> = ['pending', 'preparing', 'ready', 'delivered'];
+---
+
+<div class="bg-white rounded-lg shadow-md overflow-hidden mb-4 transition duration-200 hover:shadow-lg">
+  <div class="p-4">
+    <div class="flex justify-between items-center mb-3">
+      <div class="flex items-center">
+        <span class={`px-2 py-1 rounded-full text-white text-xs font-bold mr-2 ${getStatusColor(order.status)}`}>
+          {getStatusText(order.status)}
+        </span>
+        <h3 class="text-lg font-bold">
+          {typeof order.tableNumber === 'number' ? `Mesa ${order.tableNumber}` : `Mesa ${order.tableNumber}`}
+        </h3>
+      </div>
+      <div class="flex flex-col items-end">
+        <span class="text-gray-500 text-sm">{formattedTime}</span>
+        <span class="text-xs text-gray-400">{order.displayId}</span>
+      </div>
+    </div>
+
+    <div class="space-y-2 mb-3">
+      {order.items.map(item => (
+        <div class="flex justify-between items-center border-b border-gray-100 pb-1">
+          <div>
+            <span class="font-medium">{item.name}</span>
+            {item.variations && (
+              <p class="text-sm text-gray-500">{item.variations}</p>
+            )}
+          </div>
+          <span class="bg-gray-100 px-2 py-1 rounded-full text-sm">
+            x{item.quantity}
+          </span>
+        </div>
+      ))}
+    </div>
+
+    {order.specialInstructions && (
+      <div class="mt-2 p-2 bg-amber-50 text-amber-800 rounded border border-amber-100">
+        <p class="text-sm">
+          <span class="font-bold">Instrucciones especiales:</span> {order.specialInstructions}
+        </p>
+      </div>
+    )}
+
+    <div class="mt-4 flex justify-between items-center">
+      <div>
+        <label for={`status-${order.id}`} class="text-sm font-medium text-gray-700 mr-2">
+          Cambiar estado:
+        </label>
+        <select 
+          id={`status-${order.id}`} 
+          class="rounded border-gray-300 text-sm py-1"
+          data-order-id={order.id}
+          data-current-status={order.status}
+        >
+          {statusOptions.map(status => (
+            <option value={status} selected={status === order.status}>
+              {getStatusText(status)}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button 
+        class="update-status-btn bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+        data-order-id={order.id}
+      >
+        Actualizar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ orderId: order.id }}>
+  document.addEventListener('DOMContentLoaded', () => {
+    const updateButton = document.querySelector(`.update-status-btn[data-order-id="${orderId}"]`);
+    const statusSelect = document.querySelector(`#status-${orderId}`);
+    
+    if (updateButton && statusSelect) {
+      updateButton.addEventListener('click', () => {
+        // Obtener el nuevo status seleccionado
+        const newStatus = statusSelect.value;
+        
+        // Disparar evento personalizado para ser capturado en la página principal
+        const event = new CustomEvent('orderStatusChanged', {
+          detail: {
+            orderId,
+            status: newStatus
+          }
+        });
+        
+        document.dispatchEvent(event);
+      });
+    }
+  });
+</script>

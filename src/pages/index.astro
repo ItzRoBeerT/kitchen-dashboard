@@ -1,0 +1,274 @@
+---
+import Layout from '../layouts/Layout.astro';
+import OrderCard from '../components/OrderCard.astro';
+import OrderFilter from '../components/OrderFilter.astro';
+import OrderStats from '../components/OrderStats.astro';
+import { fetchOrders } from '../services/supabaseService';
+import { normalizeOrder, type NormalizedOrder } from '../utils/orderAdapter';
+
+// Obtener directamente las órdenes desde Supabase
+let orders: NormalizedOrder[] = [];
+try {
+  // Obtener órdenes de Supabase y normalizarlas
+  const supabaseOrders = await fetchOrders();
+  orders = supabaseOrders.map(order => normalizeOrder(order));
+} catch (error) {
+  console.error("Error al obtener datos de Supabase:", error);
+}
+
+// Formatear para mostrar las órdenes que son más recientes primero
+const sortedOrders = [...orders].sort((a, b) => 
+  b.timestamp.getTime() - a.timestamp.getTime()
+);
+---
+
+<Layout title="Dashboard de Comandas - Cocina">
+  <div class="mb-6">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-bold">Panel de Control de Comandas</h2>
+      <a href="/crear" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+        + Nueva Comanda
+      </a>
+    </div>
+    
+    <!-- Componente de estadísticas -->
+    <OrderStats orders={orders} />
+    
+    <!-- Componente de filtro -->
+    <OrderFilter activeFilter="all" />
+    
+    <!-- Notificaciones -->
+    <div id="notifications" class="my-4 hidden">
+      <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded flex justify-between">
+        <span id="notification-text"></span>
+        <button id="close-notification" class="text-green-700">
+          <span>&times;</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Panel de comandas -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="orders-container">
+      {orders.length > 0 ? (
+        sortedOrders.map(normalizedOrder => (
+          <OrderCard 
+            order={normalizedOrder} 
+            onStatusChange={(id: string, status: 'pending' | 'preparing' | 'ready' | 'delivered') => {
+              // Aquí emitiría un evento personalizado, pero como estamos en SSR,
+              // se manejará desde el script cliente
+            }} 
+          />
+        ))
+      ) : (
+        <div class="col-span-3 text-center py-10">
+          <p class="text-gray-500 text-lg">No hay comandas disponibles. Intenta crear una nueva.</p>
+        </div>
+      )}
+    </div>
+    
+    <!-- Mensaje cuando no hay comandas -->
+    <div id="no-orders" class="hidden text-center py-10">
+      <p class="text-gray-500 text-lg">No hay comandas que coincidan con el filtro seleccionado.</p>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import type { NormalizedOrder } from '../utils/orderAdapter';
+  import { supabase } from '../services/supabaseService';
+  
+  // Referencias a elementos DOM
+  const ordersContainer = document.getElementById('orders-container');
+  const noOrdersElement = document.getElementById('no-orders');
+  const notificationElement = document.getElementById('notifications');
+  const notificationTextElement = document.getElementById('notification-text');
+  const closeNotificationButton = document.getElementById('close-notification');
+  
+  // Estado de la aplicación
+  let currentFilter = 'all';
+  let orders: NormalizedOrder[] = [];
+  
+  // Cargar órdenes iniciales
+  async function loadOrders() {
+    try {
+      const response = await fetch('/api/orders');
+      if (response.ok) {
+        const rawOrders = await response.json();
+        orders = rawOrders.map((order: any) => {
+          // Verificar si ya es un NormalizedOrder o necesita conversión
+          if ('displayId' in order) {
+            return order;
+          }
+          
+          return {
+            id: order.id,
+            displayId: order.order_id || `ORDER-${order.id.substring(0, 6)}`,
+            tableNumber: order.table_number,
+            status: order.status,
+            timestamp: new Date(order.created_at || order.timestamp),
+            items: (order.items || []).map((item: any) => ({
+              name: item.name,
+              quantity: item.quantity,
+              variations: item.variations
+            })),
+            specialInstructions: order.special_instructions
+          };
+        });
+        renderOrders();
+      }
+    } catch (error) {
+      console.log('Error loading orders, using pre-rendered data');
+    }
+  }
+  
+  // Filtrar y renderizar órdenes
+  function renderOrders() {
+    if (!ordersContainer) return;
+    
+    let filteredOrders = [...orders];
+    
+    // Aplicar filtro
+    if (currentFilter !== 'all') {
+      filteredOrders = orders.filter(order => order.status === currentFilter);
+    }
+    
+    // Ordenar por fecha (más recientes primero)
+    filteredOrders.sort((a, b) => 
+      b.timestamp.getTime() - a.timestamp.getTime()
+    );
+    
+    // Mostrar mensaje cuando no hay órdenes
+    if (filteredOrders.length === 0 && noOrdersElement) {
+      noOrdersElement.classList.remove('hidden');
+    } else if (noOrdersElement) {
+      noOrdersElement.classList.add('hidden');
+    }
+    
+    // Actualizar estadísticas
+    updateStats(orders);
+    
+    // Simplemente recargamos la página para reflejar los cambios
+    // Con un framework como React, Vue o SolidJS podríamos hacer esta actualización
+    // de forma más elegante sin recargar toda la página
+    window.location.reload();
+  }
+  
+  // Actualizar estado de una orden
+  async function updateOrderStatus(orderId: string, newStatus: string) {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (response.ok) {
+        const updatedOrder = await response.json();
+        showNotification(`Orden #${updatedOrder.displayId || orderId} actualizada a ${getStatusText(newStatus)}`);
+        loadOrders(); // Recargar órdenes
+      } else {
+        throw new Error('Error actualizando orden');
+      }
+    } catch (error) {
+      console.error('Error al actualizar el estado de la orden:', error);
+      showNotification('Error al actualizar el estado de la orden', 'error');
+    }
+  }
+  
+  // Actualizar estadísticas en tiempo real
+  function updateStats(currentOrders: NormalizedOrder[]) {
+    const pendingCount = currentOrders.filter(o => o.status === 'pending').length;
+    const preparingCount = currentOrders.filter(o => o.status === 'preparing').length;
+    const readyCount = currentOrders.filter(o => o.status === 'ready').length;
+    
+    // Actualizar contadores en la UI cuando tengamos la implementación real
+  }
+  
+  // Mostrar notificación
+  function showNotification(message: string, type: 'success' | 'error' = 'success') {
+    if (notificationElement && notificationTextElement) {
+      notificationElement.classList.remove('hidden', 'bg-green-100', 'bg-red-100', 'border-green-400', 'border-red-400', 'text-green-700', 'text-red-700');
+      
+      if (type === 'success') {
+        notificationElement.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+      } else {
+        notificationElement.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+      }
+      
+      notificationTextElement.textContent = message;
+      notificationElement.classList.remove('hidden');
+      
+      // Auto ocultar después de 5 segundos
+      setTimeout(() => {
+        notificationElement?.classList.add('hidden');
+      }, 5000);
+    }
+  }
+  
+  // Función auxiliar para obtener texto del estado
+  function getStatusText(status: string): string {
+    const statusMap: Record<string, string> = {
+      'pending': 'Pendiente',
+      'preparing': 'Preparando',
+      'ready': 'Listo',
+      'delivered': 'Entregado'
+    };
+    return statusMap[status] || status;
+  }
+  
+  // Configurar suscripción en tiempo real
+  function setupRealtimeSubscription() {
+    // Suscripción a cambios en la tabla 'orders'
+    supabase
+      .channel('orders-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, handleOrderChange)
+      .subscribe();
+  }
+  
+  // Manejar cambios en tiempo real de órdenes
+  function handleOrderChange(payload: any) {
+    // Cuando se crea una nueva orden
+    if (payload.eventType === 'INSERT') {
+      showNotification('¡Nueva comanda recibida!');
+      loadOrders(); // Recargar órdenes
+    }
+    
+    // Cuando se actualiza una orden
+    if (payload.eventType === 'UPDATE') {
+      const updatedOrder = payload.new;
+      showNotification(`Comanda #${updatedOrder.order_id} actualizada a ${getStatusText(updatedOrder.status)}`);
+      loadOrders(); // Recargar órdenes
+    }
+    
+    // Cuando se elimina una orden
+    if (payload.eventType === 'DELETE') {
+      loadOrders(); // Recargar órdenes
+    }
+  }
+
+  // Event Listeners
+  document.addEventListener('DOMContentLoaded', () => {
+    // Manejar el cambio de filtro
+    document.addEventListener('filterChanged', ((event: CustomEvent) => {
+      currentFilter = event.detail.filter;
+      renderOrders();
+    }) as EventListener);
+    
+    // Manejar el cambio de estado de orden
+    document.addEventListener('orderStatusChanged', ((event: CustomEvent) => {
+      const { orderId, status } = event.detail;
+      updateOrderStatus(orderId, status);
+    }) as EventListener);
+    
+    // Cerrar notificación
+    closeNotificationButton?.addEventListener('click', () => {
+      notificationElement?.classList.add('hidden');
+    });
+    
+    // Iniciar carga de órdenes y suscripciones en tiempo real
+    loadOrders();
+    setupRealtimeSubscription();
+  });
+</script>

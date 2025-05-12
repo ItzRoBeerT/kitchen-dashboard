@@ -1,0 +1,67 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+}
+
+const { title = "Dashboard de Comandas" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Dashboard de comandas para cocina" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+  </head>
+  <body class="bg-gray-100 min-h-screen">
+    <header class="bg-white shadow-sm">
+      <div class="container mx-auto px-4 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="text-2xl">🍳</span>
+            <h1 class="text-xl md:text-2xl font-bold text-gray-800">Comandas de Cocina</h1>
+          </div>
+          <div class="text-sm text-gray-500">
+            <div id="clock" class="font-mono"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+    
+    <main class="container mx-auto px-4 py-6">
+      <slot />
+    </main>
+    
+    <footer class="bg-white shadow-sm mt-10">
+      <div class="container mx-auto px-4 py-4 text-center text-sm text-gray-500">
+        <p>© {new Date().getFullYear()} Dashboard de Comandas</p>
+      </div>
+    </footer>
+
+    <script>
+      // Actualizar el reloj en tiempo real
+      function updateClock() {
+        const clockElement = document.getElementById('clock');
+        if (clockElement) {
+          const now = new Date();
+          const formattedTime = new Intl.DateTimeFormat('es-ES', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }).format(now);
+          
+          clockElement.textContent = formattedTime;
+        }
+      }
+      
+      // Actualizar cada segundo
+      updateClock();
+      setInterval(updateClock, 1000);
+    </script>
+  </body>
+</html>

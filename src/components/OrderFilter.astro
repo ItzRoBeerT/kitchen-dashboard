@@ -1,0 +1,65 @@
+---
+// Definir las propiedades y valores iniciales
+interface Props {
+  activeFilter: string;
+}
+
+const { activeFilter = 'all' } = Astro.props;
+
+// Opciones de filtro disponibles
+const filterOptions = [
+  { id: 'all', label: 'Todas' },
+  { id: 'pending', label: 'Pendientes' },
+  { id: 'preparing', label: 'En preparación' },
+  { id: 'ready', label: 'Listas' },
+  { id: 'delivered', label: 'Entregadas' }
+];
+---
+
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+  <div class="flex flex-wrap items-center justify-between">
+    <h2 class="text-xl font-bold mb-3 sm:mb-0">Filtrar comandas:</h2>
+    
+    <div class="flex flex-wrap gap-2">
+      {filterOptions.map(option => (
+        <button
+          class={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            activeFilter === option.id
+              ? 'bg-indigo-600 text-white'
+              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+          }`}
+          data-filter={option.id}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const filterButtons = document.querySelectorAll('[data-filter]');
+    
+    filterButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const filterValue = button.getAttribute('data-filter');
+        
+        // Disparar evento de cambio de filtro
+        const event = new CustomEvent('filterChanged', {
+          detail: { filter: filterValue }
+        });
+        document.dispatchEvent(event);
+        
+        // Actualizar UI
+        filterButtons.forEach(btn => {
+          btn.classList.remove('bg-indigo-600', 'text-white');
+          btn.classList.add('bg-gray-100', 'text-gray-800', 'hover:bg-gray-200');
+        });
+        
+        button.classList.remove('bg-gray-100', 'text-gray-800', 'hover:bg-gray-200');
+        button.classList.add('bg-indigo-600', 'text-white');
+      });
+    });
+  });
+</script>
