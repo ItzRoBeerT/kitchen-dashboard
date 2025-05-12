@@ -68,62 +68,6 @@ export async function fetchOrders(): Promise<Order[]> {
   }
 }
 
-export async function createOrder(
-  orderData: {
-    order_id: string;
-    table_number: string;
-    special_instructions?: string;
-    status?: 'pending' | 'preparing' | 'ready' | 'delivered';
-  },
-  items: Omit<OrderItem, 'order_id' | 'id' | 'created_at'>[]
-): Promise<Order | null> {
-  try {
-    // Insertar la orden
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert([orderData])
-      .select()
-      .single();
-    
-    if (orderError || !order) {
-      console.error('Error creating order:', orderError);
-      return null;
-    }
-    
-    // Insertar los elementos de la orden
-    if (items.length > 0) {
-      const orderItems = items.map(item => ({
-        order_id: order.id,
-        name: item.name,
-        quantity: item.quantity,
-        variations: item.variations
-      }));
-      
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-      
-      if (itemsError) {
-        console.error('Error creating order items:', itemsError);
-        // A pesar del error en los items, devolvemos la orden creada
-      }
-      
-      // Recuperar los items creados para devolver la orden completa
-      const { data: createdItems } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', order.id);
-        
-      return { ...order, items: createdItems || [] };
-    }
-    
-    return { ...order, items: [] };
-  } catch (error) {
-    console.error('Unexpected error creating order:', error);
-    return null;
-  }
-}
-
 export async function updateOrderStatus(
   orderId: string,
   status: 'pending' | 'preparing' | 'ready' | 'delivered'
@@ -154,13 +98,33 @@ export async function updateOrderStatus(
   }
 }
 
-// Función para generar un ID único para nuevas órdenes (formato OD-YYYYMMDD-XXX)
-export function generateOrderId(): string {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  
-  return `OD-${year}${month}${day}-${random}`;
+export async function deleteOrder(orderId: string): Promise<boolean> {
+  try {
+    // Primero eliminamos los items relacionados (foreign key constraint)
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .delete()
+      .eq('order_id', orderId);
+    
+    if (itemsError) {
+      console.error('Error deleting order items:', itemsError);
+      return false;
+    }
+    
+    // Después eliminamos la orden
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', orderId);
+    
+    if (error) {
+      console.error('Error deleting order:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Unexpected error deleting order:', error);
+    return false;
+  }
 }

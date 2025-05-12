@@ -3,15 +3,18 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
+    "dev": "NODE_NO_WARNINGS=1 astro dev",
+    "build": "NODE_NO_WARNINGS=1 astro build",
+    "preview": "NODE_NO_WARNINGS=1 astro preview",
     "astro": "astro"
   },
   "dependencies": {
     "@astrojs/node": "^9.2.1",
+    "@astrojs/react": "^4.2.7",
     "@supabase/supabase-js": "^2.49.4",
-    "astro": "^5.7.12"
+    "astro": "^5.7.12",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@astrojs/tailwind": "^6.0.2",

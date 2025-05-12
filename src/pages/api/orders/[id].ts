@@ -1,4 +1,4 @@
-import { updateOrderStatus } from '../../../services/supabaseService';
+import { updateOrderStatus, deleteOrder } from '../../../services/supabaseService';
 import type { APIRoute } from 'astro';
 
 // Set this route to be server-rendered
@@ -68,6 +68,60 @@ export const PUT: APIRoute = async ({ params, request }) => {
     console.error('Error al actualizar orden:', error);
     return new Response(
       JSON.stringify({ error: 'Error al actualizar orden' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+};
+
+export const DELETE: APIRoute = async ({ params }) => {
+  try {
+    const orderId = params.id;
+    
+    if (!orderId) {
+      return new Response(
+        JSON.stringify({ error: 'ID de orden no especificado' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+    
+    // Eliminar la orden en Supabase
+    const success = await deleteOrder(orderId);
+    
+    if (success) {
+      return new Response(
+        JSON.stringify({ message: 'Orden eliminada correctamente' }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    } else {
+      return new Response(
+        JSON.stringify({ error: 'No se pudo eliminar la orden' }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Error al eliminar orden:', error);
+    return new Response(
+      JSON.stringify({ error: 'Error al eliminar orden' }),
       {
         status: 500,
         headers: {
