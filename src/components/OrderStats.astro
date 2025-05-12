@@ -1,11 +1,10 @@
 ---
-import type { Order as MockOrder } from '../data/ordersMock';
 import type { Order as SupabaseOrder } from '../services/supabaseService';
 import type { NormalizedOrder } from '../utils/orderAdapter';
 import { normalizeOrder } from '../utils/orderAdapter';
 
 interface Props {
-  orders: (MockOrder | SupabaseOrder | NormalizedOrder)[];
+  orders: (SupabaseOrder | NormalizedOrder)[];
 }
 
 const { orders: inputOrders } = Astro.props;

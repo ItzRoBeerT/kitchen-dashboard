@@ -1,5 +1,4 @@
-// Funciones para adaptar los datos de las órdenes tanto de Supabase como de los datos Mock
-import type { Order as MockOrder } from '../data/ordersMock';
+// Funciones para adaptar los datos de las órdenes de Supabase
 import type { Order as SupabaseOrder } from '../services/supabaseService';
 
 export type NormalizedOrder = {
@@ -16,32 +15,15 @@ export type NormalizedOrder = {
   specialInstructions?: string;
 };
 
-export function normalizeOrder(order: MockOrder | SupabaseOrder): NormalizedOrder {
-  // Si es una orden de Supabase
-  if ('created_at' in order && 'order_id' in order) {
-    return {
-      id: order.id,
-      displayId: order.order_id,
-      tableNumber: order.table_number,
-      status: order.status,
-      timestamp: new Date(order.created_at),
-      items: order.items?.map(item => ({
-        name: item.name,
-        quantity: item.quantity,
-        variations: item.variations
-      })) || [],
-      specialInstructions: order.special_instructions
-    };
-  }
-  
-  // Si es una orden mock
+// Función para normalizar una orden de Supabase
+export function normalizeOrder(order: SupabaseOrder): NormalizedOrder {
   return {
     id: order.id,
-    displayId: `MOCK-${order.id.substring(0, 6)}`,
+    displayId: order.order_id || `ORDER-${order.id.substring(0, 6)}`,
     tableNumber: order.table_number,
     status: order.status,
-    timestamp: new Date(order.timestamp),
-    items: order.items.map(item => ({
+    timestamp: new Date(order.created_at),
+    items: (order.items || []).map(item => ({
       name: item.name,
       quantity: item.quantity,
       variations: item.variations

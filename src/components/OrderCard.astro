@@ -1,10 +1,9 @@
 ---
 import { normalizeOrder, type NormalizedOrder } from '../utils/orderAdapter';
-import type { Order as MockOrder } from '../data/ordersMock';
 import type { Order as SupabaseOrder } from '../services/supabaseService';
 
 interface Props {
-  order: MockOrder | SupabaseOrder | NormalizedOrder;
+  order: SupabaseOrder | NormalizedOrder;
   onStatusChange: (id: string, status: 'pending' | 'preparing' | 'ready' | 'delivered') => void;
 }
 

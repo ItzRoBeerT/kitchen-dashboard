@@ -1,7 +1,6 @@
-import { getOrders as getMockOrders, updateOrderStatus as updateMockStatus, type Order as MockOrder } from '../data/ordersMock';
 import { 
   fetchOrders, 
-  updateOrderStatus as updateSupabaseOrderStatus, 
+  updateOrderStatus,
   createOrder as createSupabaseOrder,
   generateOrderId,
   type Order,
@@ -9,65 +8,25 @@ import {
 } from './supabaseService';
 
 export class OrderService {
-  static async getOrders(): Promise<Order[] | MockOrder[]> {
+  static async getOrders(): Promise<Order[]> {
     try {
-      // Intentar obtener órdenes desde Supabase
+      // Obtener órdenes desde Supabase
       const orders = await fetchOrders();
-      if (orders && orders.length > 0) {
-        return orders;
-      }
-
-      // Si Supabase falla, intentar obtener órdenes desde la API local
-      try {
-        const response = await fetch('/api/orders');
-        if (response.ok) {
-          const apiOrders = await response.json();
-          return apiOrders;
-        }
-      } catch (apiError) {
-        console.warn('API local no disponible', apiError);
-      }
-      
-      // Último recurso: usar datos mock
-      console.warn('Usando datos mock como fallback');
-      return await getMockOrders();
+      return orders;
     } catch (error) {
       console.error('Error al obtener órdenes:', error);
-      return await getMockOrders();
+      throw new Error('Error al obtener órdenes');
     }
   }
 
-  static async updateOrderStatus(id: string, status: 'pending' | 'preparing' | 'ready' | 'delivered'): Promise<Order | MockOrder | null> {
+  static async updateOrderStatus(id: string, status: 'pending' | 'preparing' | 'ready' | 'delivered'): Promise<Order | null> {
     try {
-      // Intentar actualizar en Supabase
-      const updatedOrder = await updateSupabaseOrderStatus(id, status);
-      if (updatedOrder) {
-        return updatedOrder;
-      }
-
-      // Si Supabase falla, intentar con la API local
-      try {
-        const response = await fetch(`/api/orders/${id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ status })
-        });
-        
-        if (response.ok) {
-          return await response.json();
-        }
-      } catch (apiError) {
-        console.warn('API local no disponible', apiError);
-      }
-      
-      // Último recurso: usar datos mock
-      console.warn('Usando datos mock como fallback para actualizar estado');
-      return await updateMockStatus(id, status);
+      // Actualizar en Supabase
+      const updatedOrder = await updateOrderStatus(id, status);
+      return updatedOrder;
     } catch (error) {
       console.error('Error al actualizar estado de la orden:', error);
-      return null;
+      throw new Error('Error al actualizar estado de la orden');
     }
   }
   
@@ -75,7 +34,7 @@ export class OrderService {
     tableNumber: string | number,
     items: { name: string; quantity: number; variations?: string }[],
     specialInstructions?: string
-  ): Promise<Order | MockOrder | null> {
+  ): Promise<Order | null> {
     try {
       // Preparar datos para Supabase
       const orderId = generateOrderId();
@@ -95,37 +54,10 @@ export class OrderService {
         }))
       );
       
-      if (newOrder) {
-        return newOrder;
-      }
-      
-      // Si Supabase falla, intentar con la API local
-      try {
-        const response = await fetch('/api/orders', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            table_number: tableNumber,
-            items,
-            special_instructions: specialInstructions
-          })
-        });
-        
-        if (response.ok) {
-          return await response.json();
-        }
-      } catch (apiError) {
-        console.warn('API local no disponible para crear orden', apiError);
-      }
-      
-      // No hay fallback para creación, retornamos null
-      console.error('No se pudo crear la orden');
-      return null;
+      return newOrder;
     } catch (error) {
       console.error('Error al crear nueva orden:', error);
-      return null;
+      throw new Error('Error al crear nueva orden');
     }
   }
 }

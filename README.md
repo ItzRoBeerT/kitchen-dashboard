@@ -1,6 +1,6 @@
 # Dashboard de Comandas para Cocina
 
-Aplicación web desarrollada con Astro para visualizar y gestionar las comandas que llegan a la cocina de un restaurante. Integrada con Supabase para almacenamiento de datos en tiempo real.
+Aplicación web desarrollada con Astro para visualizar y gestionar las comandas que llegan a la cocina de un restaurante. Completamente integrada con Supabase para almacenamiento y sincronización de datos en tiempo real.
 
 ## 📋 Características
 
@@ -8,10 +8,10 @@ Aplicación web desarrollada con Astro para visualizar y gestionar las comandas 
 - 🧩 Filtrado de comandas por estado
 - 🔄 Actualización del estado de las comandas en tiempo real
 - 📡 Integración con Supabase para almacenamiento persistente
-- 🔌 Suscripción a cambios en tiempo real con la base de datos
+- �� Suscripción a cambios en tiempo real con la base de datos
 - ➕ Sistema para crear nuevas comandas 
 - 🖼️ Interfaz de usuario moderna y responsive
-- 🔄 Sistema de fallback a datos de prueba cuando no hay conexión
+- ⚡ Interfaz optimizada para gestión eficiente de comandas
 
 ## 🚀 Estructura del Proyecto
 
@@ -25,8 +25,6 @@ Aplicación web desarrollada con Astro para visualizar y gestionar las comandas 
 │   │   ├── OrderCreator.astro # Componente para crear nuevas comandas
 │   │   ├── OrderFilter.astro  # Filtros para las comandas
 │   │   └── OrderStats.astro   # Estadísticas de comandas
-│   ├── data/
-│   │   └── ordersMock.ts      # Datos de prueba y modelos de datos
 │   ├── layouts/
 │   │   └── Layout.astro       # Layout principal de la aplicación
 │   ├── pages/
@@ -41,9 +39,9 @@ Aplicación web desarrollada con Astro para visualizar y gestionar las comandas 
 │   ├── styles/
 │   │   └── global.css         # Estilos globales
 │   └── utils/
-│       └── orderAdapter.ts    # Adaptador para normalizar datos de diferentes fuentes
-├── .env                      # Variables de entorno (Supabase URL y KEY)
-├── astro.config.mjs
+│       └── orderAdapter.ts    # Adaptador para normalizar datos de Supabase
+├── .env                       # Variables de entorno (Supabase URL y KEY)
+├── astro.config.mjs           # Configuración de Astro con adaptador Node
 ├── tailwind.config.mjs
 └── package.json
 ```
@@ -112,6 +110,7 @@ CREATE TABLE order_items (
 - **Creación de comandas**: Interfaz para simular la creación de nuevas comandas.
 - **Filtrado**: Filtra comandas por su estado actual.
 - **Estadísticas**: Muestra estadísticas sobre comandas activas.
+- **Manejo de errores**: Mensajes informativos cuando no hay comandas disponibles.
 
 ## 👀 Want to learn more?
 

@@ -40,6 +40,18 @@ const filterOptions = [
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     const filterButtons = document.querySelectorAll('[data-filter]');
+    const allButton = document.querySelector('[data-filter="all"]');
+    
+    // Función para actualizar la UI de los botones
+    function updateButtonStyles(activeButton: any) {
+      filterButtons.forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white');
+        btn.classList.add('bg-gray-100', 'text-gray-800', 'hover:bg-gray-200');
+      });
+      
+      activeButton.classList.remove('bg-gray-100', 'text-gray-800', 'hover:bg-gray-200');
+      activeButton.classList.add('bg-indigo-600', 'text-white');
+    }
     
     filterButtons.forEach(button => {
       button.addEventListener('click', () => {
@@ -52,14 +64,15 @@ const filterOptions = [
         document.dispatchEvent(event);
         
         // Actualizar UI
-        filterButtons.forEach(btn => {
-          btn.classList.remove('bg-indigo-600', 'text-white');
-          btn.classList.add('bg-gray-100', 'text-gray-800', 'hover:bg-gray-200');
-        });
-        
-        button.classList.remove('bg-gray-100', 'text-gray-800', 'hover:bg-gray-200');
-        button.classList.add('bg-indigo-600', 'text-white');
+        updateButtonStyles(button);
       });
+    });
+    
+    // Escuchar evento de limpieza de filtros
+    document.addEventListener('filtersCleared', () => {
+      if (allButton) {
+        updateButtonStyles(allButton);
+      }
     });
   });
 </script>

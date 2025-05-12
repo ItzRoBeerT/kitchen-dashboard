@@ -61,14 +61,32 @@ const sortedOrders = [...orders].sort((a, b) =>
         ))
       ) : (
         <div class="col-span-3 text-center py-10">
-          <p class="text-gray-500 text-lg">No hay comandas disponibles. Intenta crear una nueva.</p>
+          <div class="flex flex-col items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p class="text-gray-500 text-xl mb-2">Aún no hay comandas</p>
+            <p class="text-gray-400">Las comandas aparecerán aquí cuando se realicen nuevos pedidos.</p>
+            <a href="/crear" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+              Crear comanda de prueba
+            </a>
+          </div>
         </div>
       )}
     </div>
     
-    <!-- Mensaje cuando no hay comandas -->
+    <!-- Mensaje cuando no hay comandas que coincidan con el filtro -->
     <div id="no-orders" class="hidden text-center py-10">
-      <p class="text-gray-500 text-lg">No hay comandas que coincidan con el filtro seleccionado.</p>
+      <div class="flex flex-col items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+        <p class="text-gray-500 text-xl mb-2">No hay comandas que coincidan con el filtro</p>
+        <p class="text-gray-400">Intente con un filtro diferente para ver más resultados.</p>
+        <button id="clear-filters" class="mt-4 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
+          Mostrar todas
+        </button>
+      </div>
     </div>
   </div>
 </Layout>
@@ -94,30 +112,15 @@ const sortedOrders = [...orders].sort((a, b) =>
       const response = await fetch('/api/orders');
       if (response.ok) {
         const rawOrders = await response.json();
-        orders = rawOrders.map((order: any) => {
-          // Verificar si ya es un NormalizedOrder o necesita conversión
-          if ('displayId' in order) {
-            return order;
-          }
-          
-          return {
-            id: order.id,
-            displayId: order.order_id || `ORDER-${order.id.substring(0, 6)}`,
-            tableNumber: order.table_number,
-            status: order.status,
-            timestamp: new Date(order.created_at || order.timestamp),
-            items: (order.items || []).map((item: any) => ({
-              name: item.name,
-              quantity: item.quantity,
-              variations: item.variations
-            })),
-            specialInstructions: order.special_instructions
-          };
-        });
+        orders = rawOrders.map((order: any) => ({
+          ...order,
+          timestamp: new Date(order.timestamp) // Convertir string de fecha a objeto Date
+        }));
         renderOrders();
       }
     } catch (error) {
-      console.log('Error loading orders, using pre-rendered data');
+      console.log('Error al cargar las órdenes:', error);
+      showNotification('Error al cargar las órdenes. Intente nuevamente más tarde.', 'error');
     }
   }
   
@@ -137,20 +140,35 @@ const sortedOrders = [...orders].sort((a, b) =>
       b.timestamp.getTime() - a.timestamp.getTime()
     );
     
-    // Mostrar mensaje cuando no hay órdenes
-    if (filteredOrders.length === 0 && noOrdersElement) {
-      noOrdersElement.classList.remove('hidden');
-    } else if (noOrdersElement) {
-      noOrdersElement.classList.add('hidden');
+    // Determinar visibilidad de mensajes de "no hay órdenes"
+    if (filteredOrders.length === 0) {
+      // Si no hay órdenes en total, mostrar el mensaje de vacío
+      if (orders.length === 0) {
+        // No hacemos nada, ya que el mensaje está renderizado en SSR
+        // y solo aseguramos que el mensaje de "no coinciden con el filtro" esté oculto
+        if (noOrdersElement) {
+          noOrdersElement.classList.add('hidden');
+        }
+      } else {
+        // Si hay órdenes pero ninguna coincide con el filtro
+        if (noOrdersElement) {
+          noOrdersElement.classList.remove('hidden');
+        }
+      }
+    } else {
+      // Si hay órdenes filtradas, ocultamos el mensaje de "no hay coincidencias"
+      if (noOrdersElement) {
+        noOrdersElement.classList.add('hidden');
+      }
+      
+      // Renderizar las órdenes
+      // Recargamos la página para mostrar las nuevas órdenes
+      // En una implementación más sofisticada, actualizaríamos el DOM directamente
+      location.reload();
     }
     
     // Actualizar estadísticas
     updateStats(orders);
-    
-    // Simplemente recargamos la página para reflejar los cambios
-    // Con un framework como React, Vue o SolidJS podríamos hacer esta actualización
-    // de forma más elegante sin recargar toda la página
-    window.location.reload();
   }
   
   // Actualizar estado de una orden
@@ -261,6 +279,14 @@ const sortedOrders = [...orders].sort((a, b) =>
       const { orderId, status } = event.detail;
       updateOrderStatus(orderId, status);
     }) as EventListener);
+    
+    // Limpiar filtros cuando se hace clic en "Mostrar todas"
+    document.getElementById('clear-filters')?.addEventListener('click', () => {
+      currentFilter = 'all';
+      // Emitir evento para actualizar la UI de filtros
+      document.dispatchEvent(new CustomEvent('filtersCleared'));
+      renderOrders();
+    });
     
     // Cerrar notificación
     closeNotificationButton?.addEventListener('click', () => {

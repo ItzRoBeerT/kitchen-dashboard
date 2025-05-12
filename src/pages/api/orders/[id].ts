@@ -1,6 +1,8 @@
-import { updateOrderStatus as updateMockOrderStatus } from '../../../data/ordersMock';
-import { updateOrderStatus as updateSupabaseOrderStatus } from '../../../services/supabaseService';
+import { updateOrderStatus } from '../../../services/supabaseService';
 import type { APIRoute } from 'astro';
+
+// Set this route to be server-rendered
+export const prerender = false;
 
 export const PUT: APIRoute = async ({ params, request }) => {
   try {
@@ -33,40 +35,35 @@ export const PUT: APIRoute = async ({ params, request }) => {
       );
     }
     
-    // Intentar actualizar en Supabase primero
-    try {
-      const updatedSupabaseOrder = await updateSupabaseOrderStatus(orderId, status);
-      if (updatedSupabaseOrder) {
-        // Importar normalizeOrder para normalizar la respuesta
-        const { normalizeOrder } = await import('../../../utils/orderAdapter');
-        const normalizedOrder = normalizeOrder(updatedSupabaseOrder);
-        
-        return new Response(
-          JSON.stringify(normalizedOrder),
-          {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json'
-            }
+    // Actualizar en Supabase
+    const updatedOrder = await updateOrderStatus(orderId, status);
+    
+    if (updatedOrder) {
+      // Importar normalizeOrder para normalizar la respuesta
+      const { normalizeOrder } = await import('../../../utils/orderAdapter');
+      const normalizedOrder = normalizeOrder(updatedOrder);
+      
+      return new Response(
+        JSON.stringify(normalizedOrder),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json'
           }
-        );
-      }
-    } catch (supabaseError) {
-      console.warn('Error actualizando orden en Supabase, usando fallback:', supabaseError);
-    }
-    
-    // Fallback a datos mock si Supabase falla
-    const updatedOrder = await updateMockOrderStatus(orderId, status);
-    
-    return new Response(
-      JSON.stringify(updatedOrder),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json'
         }
-      }
-    );
+      );
+    } else {
+      // Si no se encuentra la orden
+      return new Response(
+        JSON.stringify({ error: 'No se encontró la orden especificada' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
   } catch (error) {
     console.error('Error al actualizar orden:', error);
     return new Response(
