@@ -8,15 +8,5 @@ import vercel from '@astrojs/vercel';
 export default defineConfig({
   integrations: [tailwind(), react()],
   output: 'server',
-  adapter: vercel({
-    webAnalytics: { enabled: true },
-    includeFiles: [
-      './src/assets/astro.svg',
-      './src/assets/background.svg'
-    ],
-    isr: {
-      // Habilitar ISR (Incremental Static Regeneration) para mejor rendimiento
-      expiration: 60 // 60 segundos
-    }
-  }),
+  adapter: vercel(),
 });
