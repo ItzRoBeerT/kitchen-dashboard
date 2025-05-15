@@ -41,7 +41,8 @@ export default function OrderDashboard({ initialOrders = [] }) {
   // Estado para las órdenes
   const [orders, setOrders] = useState(initialOrders.map(order => ({
     ...order,
-    timestamp: new Date(order.timestamp)
+    timestamp: new Date(order.timestamp),
+    isNew: false
   })));
   
   // Estado para el filtro actual
@@ -49,6 +50,12 @@ export default function OrderDashboard({ initialOrders = [] }) {
   
   // Estado para notificaciones
   const [notification, setNotification] = useState({ visible: false, message: '', type: 'success' });
+  
+  // Estado para controlar nuevos pedidos (para animaciones)
+  const [newOrderIds, setNewOrderIds] = useState([]);
+  
+  // Estado para controlar la última actualización
+  const [lastUpdate, setLastUpdate] = useState(new Date());
   
   // Órdenes filtradas
   const filteredOrders = currentFilter === 'all' 
@@ -69,15 +76,40 @@ export default function OrderDashboard({ initialOrders = [] }) {
   };
   
   // Cargar órdenes desde la API
-  const loadOrders = async () => {
+  const loadOrders = async (newOrderId = null) => {
     try {
       const response = await fetch('/api/orders');
       if (response.ok) {
         const rawOrders = await response.json();
-        setOrders(rawOrders.map(order => ({
-          ...order,
-          timestamp: new Date(order.timestamp)
-        })));
+        
+        // Mantener el estado de "nueva orden" para animaciones
+        const processedOrders = rawOrders.map(order => {
+          // Convertir timestamp a objeto Date
+          const processedOrder = {
+            ...order,
+            timestamp: new Date(order.timestamp)
+          };
+          
+          // Si este es el ID de una orden nueva, marcarla
+          if (newOrderId && order.id === newOrderId) {
+            processedOrder.isNew = true;
+            
+            // Añadir a la lista de nuevas órdenes para animación
+            if (!newOrderIds.includes(order.id)) {
+              setNewOrderIds(prev => [...prev, order.id]);
+              
+              // Eliminar la marca de nuevo después de 10 segundos
+              setTimeout(() => {
+                setNewOrderIds(prev => prev.filter(id => id !== order.id));
+              }, 10000);
+            }
+          }
+          
+          return processedOrder;
+        });
+        
+        setOrders(processedOrders);
+        setLastUpdate(new Date()); // Actualizamos la marca de tiempo
       }
     } catch (error) {
       console.error('Error al cargar las órdenes:', error);
@@ -110,17 +142,90 @@ export default function OrderDashboard({ initialOrders = [] }) {
   };
   
   // Mostrar notificación
-  const showNotification = (message, type = 'success') => {
+  const showNotification = (message, type = 'success', duration = 5000) => {
     setNotification({ visible: true, message, type });
-    // Auto ocultar después de 5 segundos
-    setTimeout(() => {
-      setNotification(prev => ({ ...prev, visible: false }));
-    }, 5000);
+    // Auto ocultar después del tiempo especificado
+    if (duration > 0) {
+      setTimeout(() => {
+        setNotification(prev => ({ ...prev, visible: false }));
+      }, duration);
+    }
   };
   
+  // Comprobar conexión a internet
+  const checkConnection = () => {
+    if (!navigator.onLine) {
+      showNotification(
+        'Sin conexión a Internet. Reconectando...',
+        'error',
+        0 // No auto-ocultar
+      );
+    } else {
+      // Ocultar notificación de error de conexión si estaba visible
+      if (notification.visible && notification.message.includes('Sin conexión')) {
+        showNotification('Conexión restablecida', 'success');
+        // Recargar órdenes automáticamente
+        loadOrders();
+      }
+    }
+  };
+  
+  // Solicitar permiso de notificaciones
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission !== "denied") {
+      Notification.requestPermission();
+    }
+  }, []);
+  
+  // Configurar detectores de estado de conexión
+  useEffect(() => {
+    // Verificar estado inicial
+    checkConnection();
+    
+    // Añadir detectores de eventos
+    window.addEventListener('online', checkConnection);
+    window.addEventListener('offline', checkConnection);
+    
+    return () => {
+      window.removeEventListener('online', checkConnection);
+      window.removeEventListener('offline', checkConnection);
+    };
+  }, []);
+    
   // Configurar suscripción en tiempo real con Supabase
   useEffect(() => {
+    // Carga inicial de órdenes
     loadOrders();
+    
+    // Comprobar nuevas órdenes con un intervalo regular (como respaldo a Supabase)
+    const intervalCheck = setInterval(() => {
+      loadOrders();
+    }, 20000); // Comprobar cada 20 segundos (más frecuente)
+    
+    // También recargar cuando el usuario regrese a la página después de tenerla en segundo plano
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Usuario regresó a la página - recargando órdenes...');
+        loadOrders();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Audio para notificación
+    let notificationSound;
+    if (typeof Audio !== 'undefined') {
+      notificationSound = new Audio('/sounds/notification.aiff');
+    }
+    
+    // Función para reproducir sonido de notificación
+    const playNotificationSound = () => {
+      if (notificationSound) {
+        notificationSound.play().catch(error => {
+          console.error('Error al reproducir sonido de notificación:', error);
+        });
+      }
+    };
     
     // Importar supabase solo en el cliente
     import('../services/supabaseService').then(({ supabase }) => {
@@ -130,8 +235,20 @@ export default function OrderDashboard({ initialOrders = [] }) {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
           // Cuando se crea una nueva orden
           if (payload.eventType === 'INSERT') {
-            showNotification('¡Nueva comanda recibida!');
-            loadOrders(); // Recargar órdenes
+            const newOrder = payload.new;
+            playNotificationSound();
+            
+            // Mostrar notificación del navegador si está permitido
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("¡Nueva comanda recibida!", {
+                body: `Mesa ${newOrder.table_number} - Comanda #${newOrder.order_id}`,
+                icon: "/favicon.svg"
+              });
+            }
+            
+            // Mostrar notificación en la interfaz
+            showNotification(`¡Nueva comanda #${newOrder.order_id} recibida para mesa ${newOrder.table_number}!`, 'success');
+            loadOrders(newOrder.id); // Recargar órdenes marcando la nueva
           }
           
           // Cuando se actualiza una orden
@@ -148,9 +265,11 @@ export default function OrderDashboard({ initialOrders = [] }) {
         })
         .subscribe();
       
-      // Limpiar suscripción al desmontar
+      // Limpiar suscripción y el intervalo al desmontar
       return () => {
         subscription.unsubscribe();
+        clearInterval(intervalCheck);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     });
   }, []);
@@ -258,7 +377,21 @@ export default function OrderDashboard({ initialOrders = [] }) {
       
       {/* Estadísticas */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <h3 className="text-lg font-bold mb-3">Estadísticas</h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-bold">Estadísticas</h3>
+          <div className="text-sm text-gray-500 flex items-center">
+            <span>Última actualización: {formatDate(lastUpdate)}</span>
+            <button 
+              onClick={() => loadOrders()}
+              className="ml-2 p-1 rounded-full hover:bg-gray-100"
+              title="Actualizar ahora"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-4 gap-4">
           <div className="bg-yellow-50 p-3 rounded-lg text-center">
             <div className="text-3xl text-yellow-600 font-bold">{stats.pending}</div>
@@ -337,9 +470,28 @@ export default function OrderDashboard({ initialOrders = [] }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {sortedOrders.length > 0 ? (
           sortedOrders.map(order => (
-            <div key={order.id} className="bg-white rounded-lg shadow p-4">
+            <div 
+              key={order.id} 
+              className={`bg-white rounded-lg shadow p-4 transition-all duration-500 ${
+                newOrderIds.includes(order.id) 
+                  ? 'ring-4 ring-yellow-400 animate-pulse transform hover:scale-102' 
+                  : 'hover:shadow-lg transition-shadow'
+              }`}
+            >
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-lg font-bold">Mesa {order.tableNumber}</h3>
+                <div className="flex items-center">
+                  <h3 className="text-lg font-bold mr-2">Mesa {order.tableNumber}</h3>
+                  {newOrderIds.includes(order.id) && (
+                    <div className="flex items-center">
+                      <span className="inline-flex items-center px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full animate-bounce">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        ¡NUEVA!
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <span className={`px-2 py-1 rounded text-sm font-medium ${getStatusClass(order.status)}`}>
                   {getStatusText(order.status)}
                 </span>
