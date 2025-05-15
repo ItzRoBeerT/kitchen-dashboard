@@ -5,9 +5,18 @@ const supabaseKey = import.meta.env.SUPABASE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Supabase credentials are missing!');
+  
+  // Fallback para desarrollo o cuando no están configuradas
+  if (typeof window !== 'undefined') {
+    console.warn('Usando credenciales de Supabase alternativas. Esto NO debería ocurrir en producción.');
+  }
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Creamos el cliente incluso con credenciales faltantes - en el entorno de desarrollo esto puede ser útil
+export const supabase = createClient(
+  supabaseUrl || 'https://your-project-url.supabase.co',
+  supabaseKey || 'your-anon-key'
+);
 
 // Tipos de datos adaptados a la estructura de Supabase
 export interface OrderItem {

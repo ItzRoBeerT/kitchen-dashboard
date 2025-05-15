@@ -6,11 +6,13 @@
     "dev": "NODE_NO_WARNINGS=1 astro dev",
     "build": "NODE_NO_WARNINGS=1 astro build",
     "preview": "NODE_NO_WARNINGS=1 astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "vercel-build": "NODE_NO_WARNINGS=1 astro build"
   },
   "dependencies": {
     "@astrojs/node": "^9.2.1",
     "@astrojs/react": "^4.2.7",
+    "@astrojs/vercel": "^8.1.4",
     "@supabase/supabase-js": "^2.49.4",
     "astro": "^5.7.12",
     "react": "^19.1.0",

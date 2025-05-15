@@ -1,14 +1,23 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
-import node from '@astrojs/node';
 import react from '@astrojs/react';
+import vercel from '@astrojs/vercel/serverless';
 
 // https://astro.build/config
 export default defineConfig({
   integrations: [tailwind(), react()],
   output: 'server',
-  adapter: node({
-    mode: 'standalone',
+  adapter: vercel({
+    webAnalytics: { enabled: true },
+    includeFiles: [
+      './public/sounds/notification.aiff',
+      './src/assets/astro.svg',
+      './src/assets/background.svg'
+    ],
+    isr: {
+      // Habilitar ISR (Incremental Static Regeneration) para mejor rendimiento
+      expiration: 60 // 60 segundos
+    }
   }),
 });
