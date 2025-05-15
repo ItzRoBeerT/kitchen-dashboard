@@ -197,11 +197,6 @@ export default function OrderDashboard({ initialOrders = [] }) {
     // Carga inicial de órdenes
     loadOrders();
     
-    // Comprobar nuevas órdenes con un intervalo regular (como respaldo a Supabase)
-    const intervalCheck = setInterval(() => {
-      loadOrders();
-    }, 20000); // Comprobar cada 20 segundos (más frecuente)
-    
     // También recargar cuando el usuario regrese a la página después de tenerla en segundo plano
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -249,10 +244,9 @@ export default function OrderDashboard({ initialOrders = [] }) {
         })
         .subscribe();
       
-      // Limpiar suscripción y el intervalo al desmontar
+      // Limpiar suscripción al desmontar
       return () => {
         subscription.unsubscribe();
-        clearInterval(intervalCheck);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     });
@@ -359,24 +353,32 @@ export default function OrderDashboard({ initialOrders = [] }) {
         </div>
       )}
       
+      <div className="bg-indigo-50 p-3 mb-6 rounded-lg text-indigo-700 text-sm flex justify-between items-center">
+        <div>
+          <span className="font-semibold">Actualización manual:</span> Haz clic en "Actualizar" cuando quieras refrescar los datos manualmente.
+          <br/>
+          <span className="text-xs text-indigo-600">Las nuevas comandas y cambios de estado seguirán notificándose automáticamente.</span>
+        </div>
+        <button 
+          onClick={() => loadOrders()}
+          className="flex items-center px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-md transition-colors ml-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Actualizar
+        </button>
+      </div>
+      
       {/* Estadísticas */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex flex-wrap justify-between items-center mb-3">
           <h3 className="text-lg font-bold">Estadísticas</h3>
-          <div className="text-sm text-gray-500 flex items-center">
+          <div className="flex items-center text-sm text-gray-500">
             <span>Última actualización: {formatDate(lastUpdate)}</span>
-            <button 
-              onClick={() => loadOrders()}
-              className="ml-2 p-1 rounded-full hover:bg-gray-100"
-              title="Actualizar ahora"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-yellow-50 p-3 rounded-lg text-center">
             <div className="text-3xl text-yellow-600 font-bold">{stats.pending}</div>
             <div className="text-sm text-yellow-800">Pendientes</div>
