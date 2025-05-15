@@ -11,7 +11,6 @@ export default defineConfig({
   adapter: vercel({
     webAnalytics: { enabled: true },
     includeFiles: [
-      './public/sounds/notification.aiff',
       './src/assets/astro.svg',
       './src/assets/background.svg'
     ],

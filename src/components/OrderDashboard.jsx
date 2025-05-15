@@ -212,21 +212,6 @@ export default function OrderDashboard({ initialOrders = [] }) {
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     
-    // Audio para notificación
-    let notificationSound;
-    if (typeof Audio !== 'undefined') {
-      notificationSound = new Audio('/sounds/notification.aiff');
-    }
-    
-    // Función para reproducir sonido de notificación
-    const playNotificationSound = () => {
-      if (notificationSound) {
-        notificationSound.play().catch(error => {
-          console.error('Error al reproducir sonido de notificación:', error);
-        });
-      }
-    };
-    
     // Importar supabase solo en el cliente
     import('../services/supabaseService').then(({ supabase }) => {
       // Suscripción a cambios en la tabla 'orders'
@@ -236,7 +221,6 @@ export default function OrderDashboard({ initialOrders = [] }) {
           // Cuando se crea una nueva orden
           if (payload.eventType === 'INSERT') {
             const newOrder = payload.new;
-            playNotificationSound();
             
             // Mostrar notificación del navegador si está permitido
             if ("Notification" in window && Notification.permission === "granted") {
